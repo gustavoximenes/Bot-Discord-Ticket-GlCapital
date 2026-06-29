@@ -1,0 +1,453 @@
+buttons:
+  accept_close_request:
+    text: Accepter
+    emoji: ✅
+  cancel:
+    emoji: ➖
+    text: Annuler
+  claim:
+    emoji: 🙌
+    text: S'approprier
+  close:
+    text: Fermer
+    emoji: ✖️
+  reject_close_request:
+    emoji: ✖️
+    text: Rejeter
+  confirm_open:
+    emoji: ✅
+    text: Créer un ticket
+  create:
+    text: Créer un ticket
+    emoji: 🎫
+  edit:
+    emoji: ✏️
+    text: Modifier
+  unclaim:
+    emoji: ♻️
+    text: Relâcher
+  transcript:
+    emoji: 📄
+    text: Transcription
+commands:
+  message:
+    pin:
+      name: Épingler le message
+      not_pinnable:
+        title: ❌ Erreur
+        description: "Ce message ne peut être épinglé.\nVeuillez demander à un administrateur
+          de vérifier les permissions du bot\n"
+      pinned:
+        title: ✅ Message épinglé
+        description: Le message a été épinglé.
+      not_ticket:
+        title: ❌ Ceci n'est pas un salon de tickets
+        description: Vous pouvez seulement épingler des messages dans les salons
+          de tickets.
+    create:
+      name: Transformer ce message en ticket
+  slash:
+    add:
+      not_staff:
+        title: ❌ Erreur
+        description: Seuls les membres de l'équipe peuvent ajouter des membres 
+          aux tickets des autres.
+      success:
+        title: ✅ Ajouté
+        description: '{member} a été ajouté au ticket {ticket}.'
+      added: '{added} a été ajouté par {by}.'
+      description: Ajouter un membre à un ticket
+      name: ajouter
+      options:
+        member:
+          description: Le membre à ajouter au ticket
+          name: membre
+        ticket:
+          description: Le ticket auquel ajouter le membre
+          name: ticket
+    close:
+      invalid_time:
+        title: ❌ Invalide
+        description: "`{input}` n'est pas un format de date valide."
+      options:
+        reason:
+          description: La raison de la clôture du ticket
+          name: raison
+      description: Demander la fermeture d'un ticket
+      name: fermer
+    force-close:
+      options:
+        ticket:
+          name: ticket
+          description: le ticket à clôturer
+        category:
+          description: Fermer tout les tickets dans la catégorie spécifiée (peut
+            être utilisée avec `time`)
+          name: catégorie
+        time:
+          description: Clôturer tous les billets qui ont été inactifs pendant le
+            temps spécifié
+          name: temps
+        reason:
+          name: raison
+          description: La raison de la fermeture du/des ticket(s)
+      description: Forcer la clôture d'un ticket
+      name: fermeture-forcée
+      no_tickets:
+        description: Il n'y as pas de tickets ouverts inactifs depuis plus de 
+          `{time}`.
+        title: ❌ Aucun ticket
+      not_staff:
+        description: Seuls les membres de l'équipe peuvent forcer la fermeture 
+          de tickets.
+        title: ❌ Erreur
+      confirm_multiple:
+        description: "Vous êtes sur le point de clôturer **{count}** tickets inactifs
+          depuis plus de `{time}` :\n{tickets}\n"
+        title: ❓ Êtes vous sûr ?
+      closed_one:
+        title: ✅ Ticket fermé
+        description: Le salon sera supprimé dans quelques secondes.
+      confirmed_multiple:
+        description: Les salons seront supprimés dans quelques secondes.
+        title:
+        - 
+        - ✅ Fermeture de %d tickets
+    claim:
+      description: S'approprier un ticket
+      name: réclamer
+      not_staff:
+        description: Seuls les membres de l'équipe peuvent s'approprier un 
+          ticket.
+        title: ❌ Erreur
+    help:
+      name: aide
+      response:
+        links:
+          commands: Liste complète des commandes
+          docs: Documentation
+          support: Support
+          links: Liens utiles
+          feedback: Retour
+        commands: Commandes
+        settings: Paramètres du bot
+        description: '**Utilise {command} pour créer un ticket et obtenir un support.**'
+      title: Aide
+      description: Afficher le menu d'aide
+    move:
+      description: Déplacer un ticket dans une autre catégorie
+      options:
+        category:
+          name: catégorie
+          description: La catégorie dans laquelle déplacer le ticket
+      moved: 🗃️ {by} a déplacé ce ticket de **{from}** vers **{to}**.
+      name: déplacer
+      not_staff:
+        description: Seuls les membres de l'équipe peuvent déplacer des tickets.
+        title: ❌ Erreur
+    new:
+      name: nouveau
+      description: Créer un nouveau ticket
+      options:
+        references:
+          description: Le numéro d'un ticket associé
+          name: références
+    priority:
+      name: priorité
+      options:
+        priority:
+          choices:
+            MEDIUM: 🟠 Moyenne
+            HIGH: 🔴 Haute
+            LOW: 🟢 Basse
+          description: La priorité du ticket
+          name: priorité
+      description: Définir la priorité d'un ticket
+      success:
+        title: ✅ Priorité définie
+        description: La priorité du ticket a été définie sur `{priority}`.
+      not_staff:
+        title: ❌ Erreur
+        description: Seuls les membres de l'équipe peuvent changer la priorité 
+          d'un ticket.
+    release:
+      name: relâcher
+      description: Relâcher (ne plus s'approprier) un ticket
+    remove:
+      description: Retirer un membre d'un ticket
+      name: retirer
+      success:
+        title: ✅ Retiré
+        description: '{member} a été retiré de {ticket}.'
+      options:
+        member:
+          description: Le membre à retirer du ticket
+          name: membre
+        ticket:
+          description: Le ticket dont il faut retirer le membre
+          name: ticket
+      removed: ⬅️ {removed} a été retiré par {by}.
+      not_staff:
+        description: Seuls les membres de l'équipe peuvent retirer des membres 
+          des tickets des autres.
+        title: ❌ Erreur
+    tag:
+      name: tag
+      description: Utiliser un tag
+      options:
+        for:
+          description: L'utilisateur à qui attribuer le tag
+          name: pour
+        tag:
+          description: Le nom à utiliser pour le tag
+          name: tag
+    tickets:
+      options:
+        member:
+          name: membre
+          description: Le membre dont il faut lister les tickets
+      description: Lister vos tickets ou ceux de quelqu'un d'autre
+      not_staff:
+        description: Seuls les membres de l'équipe peuvent voir les tickets des 
+          autres membres.
+        title: ❌ Erreur
+      response:
+        fields:
+          closed:
+            none:
+              other: "{user} n'as ouvert aucun ticket."
+              own: "Vous n'avez ouvert aucun ticket\nUtilisez {new} pour ouvrir un
+                ticket.\n"
+            name: Tickets clôturés
+          open:
+            name: Tickets ouverts
+        description: Utilisez {transcript} pour télécharger la transcription du 
+          ticket.
+        title:
+          other: Tickets de {displayName}
+          own: Vos tickets
+      name: tickets
+    transcript:
+      name: transcription
+      description: Obtenir la transcription d'un ticket
+      options:
+        ticket:
+          name: ticket
+          description: Le nombre de tickets dont vous souhaitez obtenir la 
+            transcription
+        member:
+          name: membre
+      not_staff:
+        title: ❌ Erreur
+    transfer:
+      description: Transférer la propriété d'un ticket à un autre membre
+      name: transférer
+      transferred_from: '{user} a transféré ce ticket de {from} à {to}.'
+      options:
+        member:
+          description: Le membre à qui transférer la propriété
+          name: membre
+      transferred: '{user} a transféré ce ticket à {to}.'
+    topic:
+      name: sujet
+      description: Changer le sujet d'un ticket
+  user:
+    create:
+      name: Créer un ticket pour un membre
+misc:
+  update:
+    description: "> [Voir`{version}` sur GitHub]({github})\n> [Notes de mises à jour]({changelog})\n\
+      \ > [Guide de mise à jour]({guide})\n"
+    title: Une mise à jour est disponible
+  category_full:
+    description: "Cette catégorie a atteint sa capacité maximale.\nVeuillez réessayer
+      ultérieurement.\n"
+    title: ❌ Catégorie pleine
+  expires_in: Expire dans {time}
+  not_ticket:
+    title: ❌ Ce salon n'est pas un ticket
+    description: Vous ne pouvez utiliser cette commande que dans un ticket.
+  ratelimited:
+    description: Réessayez dans quelques secondes.
+    title: 🐢 Veuillez ralentir
+  blocked:
+    description: Vous n'êtes pas autorisé à créer un ticket.
+    title: ❌ Bloqué
+  cooldown:
+    title: ❌ Veuillez patienter
+    description: Veuillez patienter {time} avant de créer un autre ticket dans 
+      cette catégorie.
+  error:
+    fields:
+      identifier: Identifiant
+    description: "Désolé, une erreur inattendue s'est produite.\nVeuillez transmettre
+      cette information à un administrateur.\n"
+    title: ⚠️ Quelque chose s'est mal passé
+  missing_roles:
+    description: Vous n'avez pas les rôles requis pour créer un ticket dans 
+      cette catégorie.
+    title: ❌ Rôles manquants
+  no_categories:
+    description: Aucune catégorie de ticket n'est configurée.
+    title: ❌ Il n'existe pas de catégorie de ticket
+  expired:
+    description: Vous n'avez pas répondu à temps. Veuillez réessayer.
+    title: ⏰ Expiré
+  invalid_ticket:
+    description: Veuillez spécifier un ticket valide.
+    title: ❌ Ticket invalide
+  member_limit:
+    title:
+    - ❌ Vous avez déjà un ticket
+    - Vous avez déjà %d tickets ouverts
+    description:
+    - Veuillez utiliser votre ticket ouvert ou le clôturer avant d'en créer un 
+      nouveau.
+    - "Veuillez clôturer votre ticket avant d'en créer un autre.\nUtilisez `/tickets`
+      afin de voir vos tickets existants.\n"
+  unknown_category:
+    description: Veuillez tenter une autre catégorie.
+    title: ❌ Cette catégorie de ticket n'existe pas
+modals:
+  feedback:
+    rating:
+      label: Notation
+      placeholder: 1-5
+    title: Quelle note nous donneriez-vous ?
+    comment:
+      label: Commentaire
+      placeholder: Avez vous un retour supplémentaire ?
+  topic:
+    label: Sujet
+    placeholder: Quelle est la raison de ce ticket ?
+ticket:
+  answers:
+    no_value: '*Pas de réponse*'
+  claimed: 🙌 {user} s'est approprié ce ticket.
+  close:
+    closed:
+      description: Ce salon sera supprimé dans quelques secondes…
+      title: ✅ Ticket clôturé
+    staff_request:
+      title: ❓ Ce ticket peut il être clôturé ?
+      description: "{requestedBy} souhaite clôturer ce ticket.\nCliquez sur \"Accepter\"\
+        \ pour le fermer, ou \"Refuser\" si vous avez toujours besoin d'aide.\n"
+      archived: "\nLes messages de ce salon seront archivés pour une référence future.\n"
+    forbidden:
+      title: ❌ Erreur
+      description: Vous n'avez pas la permission de clôturer ce ticket.
+    rejected: ✋ {user} a rejeté une demande de clôture de ce ticket.
+    user_request:
+      title: ❓ {requestedBy} souhaite clôturer le ticket
+    wait_for_staff: ✋ Veuillez attendre que l'équipe ferme ce ticket.
+    wait_for_user: ✋ Veuillez attendre une réponse de l'utilisateur.
+  released: ♻️ {user} a relâché ce ticket.
+  references_message:
+    title: ℹ️ Référence
+    description: Fait référence à [a message]({url}) envoyé {timestamp} par 
+      {author}.
+  references_ticket:
+    title: ℹ️ Référence
+    fields:
+      number: Nombre
+      topic: Sujet
+      date: Créé à
+    description: 'Ce ticket est lié à un ticket précédent :'
+  opening_message:
+    content: "{staff}\n{creator} a ouvert un nouveau ticket\n"
+    fields:
+      topic: Sujet
+  edited:
+    title: ✅ Ticket mis à jour
+    description: Vos modifications ont été enregistrées.
+  created:
+    description: 'Votre ticket a été créé : {channel}.'
+    title: ✅ Ticket créé
+  feedback: Merci pour votre retour.
+  closing_soon:
+    description: "Ce ticket sera fermé pour cause d'inactivité <t:{timestamp}:R>.\n\
+      \ Envoyez un message pour annuler cette automatisation.\n"
+    title: ⌛ Ce ticket sera bientôt fermé
+  working_hours:
+    today:
+      title: 🕗 Nous ne travaillons pas pour le moment
+      description: Vous pouvez recevoir une réponse avant, mais nous ne 
+        commençons pas à travailler avant <t:{timestamp}:t> aujourd'hui 
+        (<t:{timestamp}:R>).
+    next:
+      description: Nous serons de retour à <t:{timestamp}:F> 
+        (<t:{timestamp}:R>), bien que vous puissiez recevoir une réponse avant 
+        cette date.
+      title: 🕗 Nous ne travaillons pas pour le moment
+  inactive:
+    description: "Il n'y a eu aucune activité sur ce canal depuis <t:{timestamp}:R>.\n\
+      Veuillez poursuivre la conversation ou {close} le ticket.\n"
+    title: ⏰ Ce ticket est inactif
+  offline:
+    description: Il n'y a aucun membre de l'équipe disponible actuellement, il 
+      est possible que le délai de traitement soit anormalement plus élevé que 
+      d'habitude
+    title: 😴 Aucun membre de l'équipe connecté actuellement
+dm:
+  closed:
+    title: Votre ticket a été clôturé
+    fields:
+      created: Créé à
+      closed:
+        name: Clôturé à
+        value: '{timestamp} (après {duration})'
+      closed_by: Clôturé par
+      feedback: Vos retours
+      ticket: Ticket
+      topic: Sujet
+      reason: Raison de la clôture
+      response: Temps de réponse
+  confirm_open:
+    title: Souhaitez-vous ouvrir un ticket avec le sujet suivant ?
+log:
+  admin:
+    changes: Modifications
+    description:
+      joined: '{user} {verb} {targetType}'
+      target:
+        tag: un tag
+        question: une question
+        settings: les paramètres
+        panel: un panneau
+        category: une catégorie
+    title:
+      target:
+        tag: Tag
+        category: Catégorie
+        settings: Paramètres
+        panel: Panneau
+        question: Question
+      joined: '{targetType} {verb}'
+    verb:
+      update: mis à jour
+      delete: supprimé
+      create: créé
+  ticket:
+    description: '{user} {verb} un ticket'
+    verb:
+      unclaim: Relâché
+      update: mis à jour
+      close: Fermé
+      create: Créé
+      claim: Approprié
+    added: Membres ajoutés
+    removed: Membres supprimés
+    title: Ticket {verb}
+    ticket: Ticket
+  message:
+    title: Message {verb}
+    description: '{user} {verb} un message'
+    verb:
+      update: mis à jour
+      delete: supprimé
+    message: Message
+menus:
+  category:
+    placeholder: Sélectionnez une catégorie de ticket
+  guild:
+    placeholder: Sélectionnez un serveur
