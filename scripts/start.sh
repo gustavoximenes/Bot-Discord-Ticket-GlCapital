@@ -4,8 +4,6 @@ if [ "$PTERODACTYL" = "true" ]; then
     rm -rf /home/container/app
     cp -R /app /home/container/
     base_dir="/home/container/app"
-elif [ "$DOCKER" = "true" ]; then
-    base_dir="/app"
 else
     source="${BASH_SOURCE}"
     base_dir=$(dirname $(dirname "$source"))

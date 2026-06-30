@@ -123,7 +123,7 @@ model Guild {
     feedback      Feedback[]
     followUpReminder String? @db.Text
     transcriptChannels String? @db.Text
-    footer        String?    @default("Discord Tickets by eartharoid")
+    footer        String?    @default("")
     id            String     @id @db.VarChar(19)
     locale        String     @default("en-GB")
     logChannel    String?    @db.VarChar(19)
@@ -212,7 +212,7 @@ model Ticket {
     open                Boolean           @default(true)
     openingMessageId    String            @db.VarChar(19)
     pinnedMessageIds    Json              @default("[]")
-    priority            TicketPriority?
+    priority            String?
     reminder            String?           @db.Text
     referencedBy        Ticket[]          @relation("TicketsReferencedByTicket")
     referencesMessageId String?           @db.VarChar(19)
@@ -236,12 +236,6 @@ model User {
     questionAnswers QuestionAnswer[]
 
     @@map("users")
-}
-
-enum TicketPriority {
-    LOW
-    MEDIUM
-    HIGH
 }
 
 enum QuestionType {

@@ -1,7 +1,6 @@
 import { config } from 'dotenv';
 import { program } from 'commander';
 import fse from 'fs-extra';
-import { join } from 'path';
 import ora from 'ora';
 import { PrismaClient } from '@prisma/client';
 
@@ -17,20 +16,7 @@ const options = program.opts();
 
 let spinner = ora('Connecting').start();
 
-const prisma_options = {};
-
-if (process.env.DB_PROVIDER === 'sqlite' && !process.env.DB_CONNECTION_URL) {
-	prisma_options.datasources = { db: { url: 'file:' + join(process.cwd(), './user/database.db') } };
-}
-
-const prisma = new PrismaClient(prisma_options);
-
-if (process.env.DB_PROVIDER === 'sqlite') {
-	const { default: sqliteMiddleware } = await import('../src/lib/middleware/prisma-sqlite.js');
-	prisma.$use(sqliteMiddleware);
-	await prisma.$queryRaw`PRAGMA journal_mode=WAL;`;
-	await prisma.$queryRaw`PRAGMA synchronous=normal;`;
-}
+const prisma = new PrismaClient();
 
 spinner.succeed('Connected');
 

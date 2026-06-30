@@ -71,7 +71,6 @@
 - 🌎 [**Internationalisation**](#-translating) - available in more than 10 languages
 - ⏱️ **Statistics** - analyse your staff members' performance
 - 🪓 **Battle-tested** - trusted by thousands of servers, with over [half a million tickets](https://stats.discordtickets.app/) created since 2019
-- 🐳 [**Docker**](https://discordtickets.app/self-hosting/installation/docker/) - reliable and quick deployment with Docker
 
 [*...and more!*](https://discordtickets.app/features/)
 

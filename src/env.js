@@ -3,14 +3,13 @@
 const dotenv = require('dotenv');
 const { colours } = require('leeks.js');
 
-const providers = ['mysql', 'postgresql', 'sqlite'];
+const providers = ['postgresql'];
 
 // ideally the defaults would be set here too, but the pre-install script may run when `src/` is not available
 const env = {
 	DB_CONNECTION_URL: v =>
 		!!v ||
-		(process.env.DB_PROVIDER === 'sqlite') ||
-		new Error('must be set when "DB_PROVIDER" is not "sqlite"'),
+		new Error('is required (the connection string for your cloud Postgres/Supabase database)'),
 	DB_PROVIDER: v =>
 		(!!v && providers.includes(v)) ||
 		new Error(`must be one of: ${providers.map(v => `"${v}"`).join(', ')}`),
