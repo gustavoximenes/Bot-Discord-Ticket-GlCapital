@@ -570,7 +570,7 @@ ticket:
   opening_message:
     content: |
       {staff}
-      {creator} has created a new ticket
+      {creator} Você acabou de criar um ticket
     fields:
       topic: Topic
   references_message:
