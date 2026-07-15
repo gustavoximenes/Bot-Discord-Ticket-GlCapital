@@ -123,6 +123,7 @@ model Guild {
     feedback      Feedback[]
     followUpReminder String? @db.Text
     transcriptChannels String? @db.Text
+    sectorLeaders String? @db.Text
     footer        String?    @default("")
     id            String     @id @db.VarChar(19)
     locale        String     @default("en-GB")

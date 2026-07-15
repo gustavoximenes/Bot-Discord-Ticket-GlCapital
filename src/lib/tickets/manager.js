@@ -18,7 +18,7 @@ const ExtendedEmbedBuilder = require('../embed');
 const { logTicketEvent } = require('../logging');
 const { isStaff } = require('../users');
 const {
-	SECTORS, sectorLabel, sectorSlug,
+	SECTORS, sectorFromChannelName, sectorLabel, sectorSlug,
 } = require('./sectors');
 const { Collection } = require('discord.js');
 const spacetime = require('spacetime');
@@ -389,6 +389,23 @@ module.exports = class TicketManager {
 				.replace(/{+\s?num(ber)?\s?}+/gi, safeNumber);
 		}
 		const allow = ['ViewChannel', 'ReadMessageHistory', 'SendMessages', 'EmbedLinks', 'AttachFiles'];
+
+		// GL Capital: se o setor deste ticket tem um líder definido, ele já entra
+		// com acesso ao canal (ver /lider_setor). Lê fresco do banco para não
+		// depender do cache da categoria (que dura 12h).
+		let sectorLeaderId = null;
+		if (sector) {
+			try {
+				const g = await this.client.prisma.guild.findUnique({
+					select: { sectorLeaders: true },
+					where: { id: category.guild.id },
+				});
+				sectorLeaderId = JSON.parse(g?.sectorLeaders || '{}')[sector] || null;
+			} catch {
+				sectorLeaderId = null;
+			}
+		}
+
 		/** @type {import("discord.js").TextChannel} */
 		const channel = await guild.channels.create({
 			name: channelName,
@@ -410,6 +427,12 @@ module.exports = class TicketManager {
 					allow,
 					id,
 				})),
+				...(sectorLeaderId && sectorLeaderId !== creator.id
+					? [{
+						allow,
+						id: sectorLeaderId,
+					}]
+					: []),
 			],
 			rateLimitPerUser: category.ratelimit,
 			reason: `${creator.user.tag} created a ticket`,
@@ -1054,11 +1077,39 @@ module.exports = class TicketManager {
 			);
 	}
 
+	/**
+	 * GL Capital: formulário para preencher a razão do fechamento do ticket.
+	 * Usado por /fechar (id vazio) e /fechar-forcado ({ force: true, ticket }).
+	 * @param {object} [id] dados extras embutidos no customId (ex.: { force, ticket })
+	 */
+	buildCloseReasonModal(id = {}) {
+		return new ModalBuilder()
+			.setCustomId(JSON.stringify({
+				action: 'closereason',
+				...id,
+			}))
+			.setTitle('Fechar ticket')
+			.setComponents(
+				new ActionRowBuilder()
+					.setComponents(
+						new TextInputBuilder()
+							.setCustomId('reason')
+							.setLabel('Razão do fechamento')
+							.setStyle(TextInputStyle.Paragraph)
+							.setMaxLength(1000)
+							.setMinLength(3)
+							.setPlaceholder('Descreva o motivo do fechamento do ticket')
+							.setRequired(true),
+					),
+			);
+	}
+
 
 	/**
 	 * @param {import("discord.js").ChatInputCommandInteraction|import("discord.js").ButtonInteraction} interaction
+	 * @param {string?} [reasonOverride] razão vinda de um modal (sobrepõe a opção 'reason')
 	 */
-	async beforeRequestClose(interaction) {
+	async beforeRequestClose(interaction, reasonOverride = null) {
 		const ticket = await this.getTicket(interaction.channel.id);
 		if (!ticket) {
 			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -1089,7 +1140,7 @@ module.exports = class TicketManager {
 
 		const getMessage = this.client.i18n.getLocale(ticket.guild.locale);
 		const staff = await isStaff(interaction.guild, interaction.user.id);
-		const reason = interaction.options?.getString('reason', false) || null; // ?. because it could be a button interaction
+		const reason = reasonOverride ?? (interaction.options?.getString('reason', false) || null); // ?. because it could be a button interaction
 
 		if (ticket.createdById !== interaction.user.id && !staff) {
 			return await interaction.editReply({
@@ -1379,6 +1430,26 @@ module.exports = class TicketManager {
 				const transcriptChannel = this.client.channels.cache.get(channelId);
 				if (transcriptChannel) {
 					await transcriptChannel.send({
+						components,
+						embeds: [dmEmbed],
+					}).catch(error => this.client.log.error(error));
+				}
+			}
+		} catch (error) {
+			this.client.log.error(error);
+		}
+
+		// GL Capital: também envia o resumo de fechamento para o líder do setor do ticket
+		// (o setor é identificado pelo nome do canal, ainda disponível em memória).
+		try {
+			const sector = sectorFromChannelName(channel?.name);
+			const leaders = JSON.parse(ticket.guild.sectorLeaders || '{}');
+			const leaderId = sector ? leaders[sector] : null;
+			if (leaderId && leaderId !== ticket.createdById && guild) {
+				let leader = guild.members.cache.get(leaderId);
+				if (!leader) leader = await guild.members.fetch(leaderId).catch(() => null);
+				if (leader) {
+					await leader.send({
 						components,
 						embeds: [dmEmbed],
 					}).catch(error => this.client.log.error(error));

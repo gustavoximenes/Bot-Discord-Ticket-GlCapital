@@ -123,6 +123,7 @@ model Guild {
     feedback      Feedback[]
     followUpReminder String?
     transcriptChannels String?
+    sectorLeaders String?
     footer        String?    @default("Discord Tickets by eartharoid")
     id            String     @id
     locale        String     @default("en-GB")

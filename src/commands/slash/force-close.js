@@ -60,6 +60,30 @@ module.exports = class ForceCloseSlashCommand extends SlashCommand {
 		/** @type {import("client")} */
 		const client = this.client;
 
+		const timeOption = interaction.options.getString('time', false);
+		const reasonOption = interaction.options.getString('reason', false);
+		const ticketOption = interaction.options.getString('ticket', false);
+
+		// GL Capital: fechamento de um único ticket (canal atual ou opção 'ticket')
+		// pede a razão via formulário. Não se aplica ao fechamento em massa por 'time'
+		// nem quando a opção 'reason' já foi informada.
+		if (!timeOption && !reasonOption && await isStaff(interaction.guild, interaction.user.id)) {
+			const targetId = ticketOption || interaction.channel.id;
+			const ticket = await client.prisma.ticket.findUnique({
+				select: { id: true },
+				where: {
+					guildId: interaction.guild.id,
+					id: targetId,
+				},
+			});
+			if (ticket) {
+				return await interaction.showModal(client.tickets.buildCloseReasonModal({
+					force: true,
+					ticket: ticket.id,
+				}));
+			}
+		}
+
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 		const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });

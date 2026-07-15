@@ -58,10 +58,9 @@ module.exports = class SectorMenu extends Menu {
 			.setCustomId('cpf')
 			.setLabel('CPF')
 			.setStyle(TextInputStyle.Short)
-			.setMinLength(11)
 			.setMaxLength(14)
 			.setPlaceholder('000.000.000-00')
-			.setRequired(true);
+			.setRequired(false);
 
 		const linkField = new TextInputBuilder()
 			.setCustomId('link')
