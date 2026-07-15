@@ -13,11 +13,13 @@ const {
 	TextInputStyle,
 	MessageFlags,
 } = require('discord.js');
-const emoji = require('node-emoji');
 const ms = require('ms');
 const ExtendedEmbedBuilder = require('../embed');
 const { logTicketEvent } = require('../logging');
 const { isStaff } = require('../users');
+const {
+	SECTORS, sectorLabel, sectorSlug,
+} = require('./sectors');
 const { Collection } = require('discord.js');
 const spacetime = require('spacetime');
 
@@ -276,87 +278,52 @@ module.exports = class TicketManager {
 			});
 		}
 
-		if (category.questions.length >= 1) {
-			await interaction.showModal(
-				new ModalBuilder()
-					.setCustomId(JSON.stringify({
-						action: 'questions',
-						categoryId,
-						referencesMessageId,
-						referencesTicketId,
-					}))
-					.setTitle(category.name)
-					.setComponents(
-						category.questions
-							.filter(q => q.type === 'TEXT') // TODO: remove this when modals support select menus
-							.map(q => {
-								if (q.type === 'TEXT') {
-									const field = new TextInputBuilder()
-										.setCustomId(q.id)
-										.setLabel(q.label)
-										.setStyle(q.style)
-										.setMaxLength(Math.min(q.maxLength, 1000))
-										.setMinLength(q.minLength)
-										.setPlaceholder(q.placeholder)
-										.setRequired(q.required);
-									if (q.value) field.setValue(q.value);
-									return new ActionRowBuilder().setComponents(field);
-								} else if (q.type === 'MENU') {
-									return new ActionRowBuilder()
-										.setComponents(
-											new StringSelectMenuBuilder()
-												.setCustomId(q.id)
-												.setPlaceholder(q.placeholder || q.label)
-												.setMaxValues(q.maxLength)
-												.setMinValues(q.minLength)
-												.setOptions(
-													q.options.map((o, i) => {
-														const builder = new StringSelectMenuOptionBuilder()
-															.setValue(String(i))
-															.setLabel(o.label);
-														if (o.description) builder.setDescription(o.description);
-														if (o.emoji) builder.setEmoji(emoji.hasEmoji(o.emoji) ? emoji.get(o.emoji) : { id: o.emoji });
-														return builder;
-													}),
-												),
-										);
-								}
-							}),
-					),
-			);
-		} else if (category.requireTopic && !topic) {
-			await interaction.showModal(
-				new ModalBuilder()
-					.setCustomId(JSON.stringify({
-						action: 'topic',
-						categoryId,
-						referencesMessageId,
-						referencesTicketId,
-					}))
-					.setTitle(category.name)
-					.setComponents(
-						new ActionRowBuilder()
-							.setComponents(
-								new TextInputBuilder()
-									.setCustomId('topic')
-									.setLabel(getMessage('modals.topic.label'))
-									.setStyle(TextInputStyle.Paragraph)
-									.setMaxLength(1000)
-									.setMinLength(5)
-									.setPlaceholder(getMessage('modals.topic.placeholder'))
-									.setRequired(true),
-							),
-					),
-			);
-		} else {
-			await this.postQuestions({
+		// GL Capital: toda abertura de ticket passa por um fluxo de dois passos.
+		// 1) dropdown de setor (aqui)  ->  2) modal com Razão, CPF e Link (src/menus/sector.js).
+		// Isto é necessário porque esta versão do discord.js não permite select menu
+		// dentro de um modal (o mesmo motivo do filtro `q.type === 'TEXT'` acima no código original).
+		// O contexto do fluxo (categoria/referências/topic pré-preenchido) fica no keyv,
+		// referenciado por um token curto no customId do select.
+		const flowId = getSUID();
+		await this.client.keyv.set(
+			`ticket-flow:${flowId}`,
+			{
 				categoryId,
-				interaction,
-				referencesMessageId,
-				referencesTicketId,
-				topic,
-			});
-		}
+				referencesMessageId: referencesMessageId ?? null,
+				referencesTicketId: referencesTicketId ?? null,
+				topic: topic ?? null,
+			},
+			ms('15m'),
+		);
+
+		await interaction.reply({
+			components: [
+				new ActionRowBuilder().setComponents(
+					new StringSelectMenuBuilder()
+						.setCustomId(JSON.stringify({
+							action: 'sector',
+							flow: flowId,
+						}))
+						.setPlaceholder('Selecione o setor do ticket')
+						.setOptions(
+							SECTORS.map(s =>
+								new StringSelectMenuOptionBuilder()
+									.setValue(s.value)
+									.setLabel(s.label)),
+						),
+				),
+			],
+			embeds: [
+				new ExtendedEmbedBuilder({
+					iconURL: guild.iconURL(),
+					text: category.guild.footer,
+				})
+					.setColor(category.guild.primaryColour)
+					.setTitle('Abrir ticket')
+					.setDescription('Selecione o **setor** a que este ticket pertence para continuar.'),
+			],
+			flags: MessageFlags.Ephemeral,
+		});
 	}
 
 	/**
@@ -369,6 +336,7 @@ module.exports = class TicketManager {
 	 */
 	async postQuestions({
 		action, categoryId, interaction, topic, referencesMessageId, referencesTicketId,
+		sector, cpf, link,
 	}) {
 		const [, category] = await Promise.all([
 			interaction.deferReply({ flags: MessageFlags.Ephemeral }),
@@ -400,10 +368,26 @@ module.exports = class TicketManager {
 		const getMessage = this.client.i18n.getLocale(category.guild.locale);
 		const creator = await guild.members.fetch(interaction.user.id);
 		const number = await this.getNextNumber(category.guild.id);
-		const channelName = category.channelName
-			.replace(/{+\s?(user)?name\s?}+/gi, creator.user.username)
-			.replace(/{+\s?(nick|display)(name)?\s?}+/gi, creator.displayName)
-			.replace(/{+\s?num(ber)?\s?}+/gi, number === 1488 ? '1487b' : number);
+		const safeNumber = number === 1488 ? '1487b' : number;
+		let channelName;
+		if (sector) {
+			// GL Capital: nome do canal no formato "numero-setor-nome".
+			// Ex.: 42-clt-joao-silva. O nome é normalizado (sem acentos, minúsculo,
+			// só letras/números/hífen) para respeitar as regras de nome de canal do Discord.
+			const safeName = (creator.displayName || creator.user.username)
+				.normalize('NFD')
+				.replace(/\p{Diacritic}/gu, '') // remove acentos
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, '-')
+				.replace(/^-+|-+$/g, '')
+				.slice(0, 60) || 'user';
+			channelName = `${safeNumber}-${sectorSlug(sector)}-${safeName}`;
+		} else {
+			channelName = category.channelName
+				.replace(/{+\s?(user)?name\s?}+/gi, creator.user.username)
+				.replace(/{+\s?(nick|display)(name)?\s?}+/gi, creator.displayName)
+				.replace(/{+\s?num(ber)?\s?}+/gi, safeNumber);
+		}
 		const allow = ['ViewChannel', 'ReadMessageHistory', 'SendMessages', 'EmbedLinks', 'AttachFiles'];
 		/** @type {import("discord.js").TextChannel} */
 		const channel = await guild.channels.create({
@@ -491,6 +475,31 @@ module.exports = class TicketManager {
 								name: q.label,
 								value: interaction.fields.getTextInputValue(q.id) || getMessage('ticket.answers.no_value'),
 							})),
+					),
+			);
+		} else if (sector) {
+			// GL Capital: infos coletadas no fluxo de abertura (razão/cpf/link/setor).
+			const noValue = getMessage('ticket.answers.no_value');
+			embeds.push(
+				new ExtendedEmbedBuilder()
+					.setColor(category.guild.primaryColour)
+					.setFields(
+						{
+							name: 'Razão',
+							value: topic || noValue,
+						},
+						{
+							name: 'CPF',
+							value: cpf || noValue,
+						},
+						{
+							name: 'Link',
+							value: link || noValue,
+						},
+						{
+							name: 'Setor',
+							value: sectorLabel(sector),
+						},
 					),
 			);
 		} else if (topic) {
