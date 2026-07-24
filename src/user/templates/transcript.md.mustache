@@ -1,39 +1,47 @@
-#{{ channelName }} ticket transcript
+#{{ channelName }} — transcrição do ticket
 
 ---
+
+## Resumo
+
+* Nome de quem abriu: {{ glc.createdBy }}{{ #ticket.createdBy }} (@{{ username }}){{ /ticket.createdBy }}
+* Nome de quem fechou: {{ glc.closedBy }}{{ #ticket.closedBy }} (@{{ username }}){{ /ticket.closedBy }}
+* Setor: {{ glc.sector }}
+* Motivo da abertura do ticket: {{ glc.reason }}
+* Solução do ticket: {{ glc.solution }}
+
+---
+
+## Detalhes
 
 * ID: {{ ticket.id }} ({{ guildName }})
-* Number: {{ ticket.category.name }} #{{ ticket.number }}
-* Topic: {{ #ticket.topic }}{{ . }}{{ /ticket.topic }}{{ ^ticket.topic }}(no topic){{ /ticket.topic }}
-* Created on: {{ #ticket }}{{ createdAtFull }}{{ /ticket }}
-* Created by: {{ #ticket.createdBy }}"{{ displayName }}" @{{ username }}#{{ discriminator }}{{ /ticket.createdBy }}
-* Closed on: {{ #ticket }}{{ closedAtFull }}{{ /ticket }}
-* Closed by: {{ #ticket.closedBy }}"{{ displayName }}" @{{ username }}#{{ discriminator }}{{ /ticket.closedBy }}{{ ^ticket.closedBy }}(automated){{ /ticket.closedBy }}
-* Closed because: {{ #ticket.closedReason }}{{ ticket.closedReason }}{{ /ticket.closedReason }}{{ ^ticket.closedReason }}(no reason){{ /ticket.closedReason }}
-* Claimed by: {{ #ticket.claimedBy }}"{{ displayName }}" @{{ username }}#{{ discriminator }}{{ /ticket.claimedBy }}{{ ^ticket.claimedBy }}(not claimed){{ /ticket.claimedBy }}
+* Número: {{ ticket.category.name }} #{{ ticket.number }}
+* Aberto em: {{ #ticket }}{{ createdAtFull }}{{ /ticket }}
+* Fechado em: {{ #ticket }}{{ closedAtFull }}{{ /ticket }}
+* Assumido por: {{ #ticket.claimedBy }}"{{ displayName }}" @{{ username }}{{ /ticket.claimedBy }}{{ ^ticket.claimedBy }}(não assumido){{ /ticket.claimedBy }}
 {{ #ticket.feedback }}
 * Feedback:
-  * Rating: {{ rating }}/5
-  * Comment: {{ comment }}{{ ^comment }}(no comment){{ /comment }}
+  * Avaliação: {{ rating }}/5
+  * Comentário: {{ comment }}{{ ^comment }}(sem comentário){{ /comment }}
 {{ /ticket.feedback }}
-* Participants:
+* Participantes:
 {{ #ticket.archivedUsers }}
-  * "{{ displayName }}" @{{ username }}#{{ discriminator }} ({{ userId }})
+  * "{{ displayName }}" @{{ username }} ({{ userId }})
 {{ /ticket.archivedUsers }}
-* Pinned messages: {{ #pinned }}{{ . }}{{ /pinned }}{{ ^pinned }}(none){{ /pinned }}
+* Mensagens fixadas: {{ #pinned }}{{ . }}{{ /pinned }}{{ ^pinned }}(nenhuma){{ /pinned }}
 
 ---
 
-## Questions
+## Perguntas
 
 {{ #ticket.questionAnswers }}
 ### **{{ question.label }}**
-> {{ value }}{{ ^value }}(no answer){{ /value }}
+> {{ value }}{{ ^value }}(sem resposta){{ /value }}
 
-{{ /ticket.questionAnswers }}{{ ^ticket.questionAnswers }}(none)
+{{ /ticket.questionAnswers }}{{ ^ticket.questionAnswers }}(nenhuma)
 
 {{ /ticket.questionAnswers }}
-## Messages
+## Mensagens
 
 {{ #ticket.archivedMessages }}
 <{{ number }}> [{{ createdAtTimestamp }}] {{author.displayName}}: {{ text }}

@@ -29,7 +29,20 @@ module.exports = class CloseReasonModal extends Modal {
 		if (id.force) {
 			await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 			const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
-			const getMessage = client.i18n.getLocale(settings.locale);
+
+			// GL Capital: a confirmação mostra quem estava sendo atendido e a razão informada
+			const ticket = await client.prisma.ticket.findUnique({
+				select: { createdById: true },
+				where: { id: id.ticket },
+			});
+			const creatorName = ticket
+				? await client.tickets.getCreatorName(interaction.guild, ticket.createdById)
+				: null;
+
+			const description = [];
+			if (creatorName) description.push(`Atendimento de **${creatorName}**.`);
+			if (reason) description.push('', '**Razão do fechamento**', `> ${reason.replace(/\n/g, '\n> ')}`);
+			description.push('', 'O canal será excluído em alguns segundos.');
 
 			await interaction.editReply({
 				embeds: [
@@ -38,8 +51,8 @@ module.exports = class CloseReasonModal extends Modal {
 						text: settings.footer,
 					})
 						.setColor(settings.successColour)
-						.setTitle(getMessage('commands.slash.force-close.closed_one.title'))
-						.setDescription(getMessage('commands.slash.force-close.closed_one.description', { ticket: id.ticket })),
+						.setTitle('✅ Ticket fechado')
+						.setDescription(description.join('\n')),
 				],
 			});
 

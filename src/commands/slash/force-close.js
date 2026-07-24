@@ -87,79 +87,62 @@ module.exports = class ForceCloseSlashCommand extends SlashCommand {
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 		const settings = await client.prisma.guild.findUnique({ where: { id: interaction.guild.id } });
-		const getMessage = client.i18n.getLocale(settings.locale);
 		let ticket;
+
+		const embed = (colour, title, description) => new ExtendedEmbedBuilder({
+			iconURL: interaction.guild.iconURL(),
+			text: settings.footer,
+		})
+			.setColor(colour)
+			.setTitle(title)
+			.setDescription(description);
+
+		// GL Capital: a confirmação de fechamento mostra quem estava sendo atendido
+		// e a razão informada no comando.
+		const closedEmbed = async closedTicket => {
+			const creatorName = await client.tickets.getCreatorName(interaction.guild, closedTicket.createdById);
+			const description = [`Atendimento de **${creatorName}**.`];
+			if (reasonOption) description.push('', '**Razão do fechamento**', `> ${reasonOption.replace(/\n/g, '\n> ')}`);
+			description.push('', 'O canal será excluído em alguns segundos.');
+			return embed(settings.successColour, '✅ Ticket fechado', description.join('\n'));
+		};
 
 		if (!(await isStaff(interaction.guild, interaction.user.id))) { // if user is not staff
 			return await interaction.editReply({
-				embeds: [
-					new ExtendedEmbedBuilder({
-						iconURL: interaction.guild.iconURL(),
-						text: settings.footer,
-					})
-						.setColor(settings.errorColour)
-						.setTitle(getMessage('commands.slash.force-close.not_staff.title'))
-						.setDescription(getMessage('commands.slash.force-close.not_staff.description')),
-				],
+				embeds: [embed(settings.errorColour, '❌ Sem permissão', 'Apenas membros da equipe podem forçar o fechamento de tickets.')],
 			});
 		}
 
-		if (interaction.options.getString('ticket', false)) { // if ticket option is passed
+		if (ticketOption) { // if ticket option is passed
 			ticket = await client.prisma.ticket.findUnique({
 				include: { category: true },
 				where: {
 					guildId: interaction.guild.id, // ! very important
-					id: interaction.options.getString('ticket'),
+					id: ticketOption,
 				},
 			});
 
 			if (!ticket) {
 				return await interaction.editReply({
-					embeds: [
-						new ExtendedEmbedBuilder({
-							iconURL: interaction.guild.iconURL(),
-							text: settings.footer,
-						})
-							.setColor(settings.errorColour)
-							.setTitle(getMessage('misc.invalid_ticket.title'))
-							.setDescription(getMessage('misc.invalid_ticket.description')),
-					],
+					embeds: [embed(settings.errorColour, '❌ Ticket inválido', 'Por favor, especifique um ticket válido.')],
 				});
 			}
 
-			await interaction.editReply({
-				embeds: [
-					new ExtendedEmbedBuilder({
-						iconURL: interaction.guild.iconURL(),
-						text: settings.footer,
-					})
-						.setColor(settings.successColour)
-						.setTitle(getMessage('commands.slash.force-close.closed_one.title'))
-						.setDescription(getMessage('commands.slash.force-close.closed_one.description', { ticket: ticket.id })),
-				],
-			});
+			await interaction.editReply({ embeds: [await closedEmbed(ticket)] });
 
 			setTimeout(async () => {
 				await client.tickets.finallyClose(ticket.id, {
 					closedBy: interaction.user.id,
-					reason: interaction.options.getString('reason', false),
+					reason: reasonOption,
 				});
 			}, ms('3s'));
 
-		} else if (interaction.options.getString('time', false)) { // if time option is passed
-			const time = ms(interaction.options.getString('time', false));
+		} else if (timeOption) { // if time option is passed
+			const time = ms(timeOption);
 
 			if (!time) {
 				return await interaction.editReply({
-					embeds: [
-						new ExtendedEmbedBuilder({
-							iconURL: interaction.guild.iconURL(),
-							text: settings.footer,
-						})
-							.setColor(settings.errorColour)
-							.setTitle(getMessage('commands.slash.close.invalid_time.title'))
-							.setDescription(getMessage('commands.slash.close.invalid_time.description', { input: interaction.options.getString('time', false) })),
-					],
+					embeds: [embed(settings.errorColour, '❌ Tempo inválido', `\`${timeOption}\` não é um formato de tempo válido.`)],
 				});
 			}
 
@@ -175,15 +158,7 @@ module.exports = class ForceCloseSlashCommand extends SlashCommand {
 
 			if (tickets.length === 0) {
 				return await interaction.editReply({
-					embeds: [
-						new ExtendedEmbedBuilder({
-							iconURL: interaction.guild.iconURL(),
-							text: settings.footer,
-						})
-							.setColor(settings.errorColour)
-							.setTitle(getMessage('commands.slash.force-close.no_tickets.title'))
-							.setDescription(getMessage('commands.slash.force-close.no_tickets.description', { time: ms(time, { long: true }) })),
-					],
+					embeds: [embed(settings.errorColour, '❌ Sem tickets', `Não há tickets abertos que estão inativos por mais de \`${ms(time, { long: true })}\`.`)],
 				});
 			}
 
@@ -198,30 +173,29 @@ module.exports = class ForceCloseSlashCommand extends SlashCommand {
 									id: 'close',
 								}))
 								.setStyle(ButtonStyle.Danger)
-								.setEmoji(getMessage('buttons.close.emoji'))
-								.setLabel(getMessage('buttons.close.text')),
+								.setEmoji('✖️')
+								.setLabel('Fechar'),
 							new ButtonBuilder()
 								.setCustomId(JSON.stringify({
 									action: 'custom',
 									id: 'cancel',
 								}))
 								.setStyle(ButtonStyle.Secondary)
-								.setEmoji(getMessage('buttons.cancel.emoji'))
-								.setLabel(getMessage('buttons.cancel.text')),
+								.setEmoji('➖')
+								.setLabel('Cancelar'),
 						]),
 				],
 				embeds: [
 					new ExtendedEmbedBuilder({
 						iconURL: interaction.guild.iconURL(),
-						text: getMessage('misc.expires_in', { time: ms(collectorTime, { long: true }) }),
+						text: `Expira em ${ms(collectorTime, { long: true })}`,
 					})
 						.setColor(settings.primaryColour)
-						.setTitle(getMessage('commands.slash.force-close.confirm_multiple.title'))
-						.setDescription(getMessage('commands.slash.force-close.confirm_multiple.description', {
-							count: tickets.length,
-							tickets: tickets.map(t => `> <#${t.id}>`).join('\n'),
-							time: ms(time, { long: true }),
-						})),
+						.setTitle('❓ Tem certeza?')
+						.setDescription(
+							`Você está prestes a fechar **${tickets.length}** ticket(s) que estão inativos por mais de \`${ms(time, { long: true })}\`:\n\n` +
+							tickets.map(t => `> <#${t.id}>`).join('\n'),
+						),
 				],
 			});
 
@@ -235,21 +209,19 @@ module.exports = class ForceCloseSlashCommand extends SlashCommand {
 						await i.reply({
 							components: [],
 							embeds: [
-								new ExtendedEmbedBuilder({
-									iconURL: interaction.guild.iconURL(),
-									text: settings.footer,
-								})
-									.setColor(settings.successColour)
-									.setTitle(getMessage('commands.slash.force-close.confirmed_multiple.title', tickets.length, tickets.length))
-									.setDescription(getMessage('commands.slash.force-close.confirmed_multiple.description')),
+								embed(
+									settings.successColour,
+									`✅ Fechando ${tickets.length} ticket${tickets.length === 1 ? '' : 's'}`,
+									'Os canais serão excluídos em alguns segundos.',
+								),
 							],
 							flags: MessageFlags.Ephemeral,
 						});
 						setTimeout(async () => {
-							for (const ticket of tickets) {
-								await client.tickets.finallyClose(ticket.id, {
+							for (const t of tickets) {
+								await client.tickets.finallyClose(t.id, {
 									closedBy: interaction.user.id,
-									reason: interaction.options.getString('reason', false),
+									reason: reasonOption,
 								});
 							}
 						}, ms('3s'));
@@ -261,15 +233,7 @@ module.exports = class ForceCloseSlashCommand extends SlashCommand {
 					client.log.error(error);
 					await interaction.reply({
 						components: [],
-						embeds: [
-							new ExtendedEmbedBuilder({
-								iconURL: interaction.guild.iconURL(),
-								text: settings.footer,
-							})
-								.setColor(settings.errorColour)
-								.setTitle(getMessage('misc.expired.title'))
-								.setDescription(getMessage('misc.expired.description', { time: ms(time, { long: true }) })),
-						],
+						embeds: [embed(settings.errorColour, '⏰ Expirado', 'Você não respondeu a tempo. Por favor, tente novamente.')],
 					});
 				});
 		} else {
@@ -283,34 +247,16 @@ module.exports = class ForceCloseSlashCommand extends SlashCommand {
 
 			if (!ticket) {
 				return await interaction.editReply({
-					embeds: [
-						new ExtendedEmbedBuilder({
-							iconURL: interaction.guild.iconURL(),
-							text: settings.footer,
-						})
-							.setColor(settings.errorColour)
-							.setTitle(getMessage('misc.not_ticket.title'))
-							.setDescription(getMessage('misc.not_ticket.description')),
-					],
+					embeds: [embed(settings.errorColour, '❌ Este não é um canal de tickets', 'Você só pode usar esse comando em tickets.')],
 				});
 			}
 
-			await interaction.editReply({
-				embeds: [
-					new ExtendedEmbedBuilder({
-						iconURL: interaction.guild.iconURL(),
-						text: settings.footer,
-					})
-						.setColor(settings.successColour)
-						.setTitle(getMessage('commands.slash.force-close.closed_one.title'))
-						.setDescription(getMessage('commands.slash.force-close.closed_one.description', { ticket: ticket.id })),
-				],
-			});
+			await interaction.editReply({ embeds: [await closedEmbed(ticket)] });
 
 			setTimeout(async () => {
 				await client.tickets.finallyClose(ticket.id, {
 					closedBy: interaction.user.id,
-					reason: interaction.options.getString('reason', false),
+					reason: reasonOption,
 				});
 			}, ms('3s'));
 		}

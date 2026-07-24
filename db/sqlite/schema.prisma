@@ -124,6 +124,8 @@ model Guild {
     followUpReminder String?
     transcriptChannels String?
     sectorLeaders String?
+    closeTimer    String?
+    devRole       String?
     footer        String?    @default("Discord Tickets by eartharoid")
     id            String     @id
     locale        String     @default("en-GB")
@@ -198,6 +200,7 @@ model Ticket {
     closedBy            User?             @relation(name: "TicketsClosedByUser", fields: [closedById], references: [id])
     closedById          String?
     closedReason        String?
+    closeTimer          String?
     createdAt           DateTime          @default(now())
     createdBy           User              @relation(name: "TicketsCreatedByUser", fields: [createdById], references: [id])
     createdById         String
@@ -219,6 +222,7 @@ model Ticket {
     referencesMessageId String?
     referencesTicket    Ticket?           @relation(name: "TicketsReferencedByTicket", fields: [referencesTicketId], references: [id], onDelete: SetNull)
     referencesTicketId  String?
+    sector              String?
     topic               String?
     questionAnswers     QuestionAnswer[]
 

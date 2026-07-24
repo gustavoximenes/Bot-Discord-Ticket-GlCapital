@@ -24,7 +24,6 @@ module.exports = class CloseButton extends Button {
 			await client.tickets.beforeRequestClose(interaction);
 		} else {
 			const ticket = await client.tickets.getTicket(interaction.channel.id, true); // true to override cache and load new feedback
-			const getMessage = client.i18n.getLocale(ticket.guild.locale);
 			const staff = await isStaff(interaction.guild, interaction.user.id);
 
 			if (id.expect === 'staff' && !staff) {
@@ -32,7 +31,7 @@ module.exports = class CloseButton extends Button {
 					embeds: [
 						new ExtendedEmbedBuilder()
 							.setColor(ticket.guild.errorColour)
-							.setDescription(getMessage('ticket.close.wait_for_staff')),
+							.setDescription('✋ Aguarde até que a equipe feche este ticket.'),
 					],
 					flags: MessageFlags.Ephemeral,
 				});
@@ -41,7 +40,7 @@ module.exports = class CloseButton extends Button {
 					embeds: [
 						new ExtendedEmbedBuilder()
 							.setColor(ticket.guild.errorColour)
-							.setDescription(getMessage('ticket.close.wait_for_user')),
+							.setDescription('✋ Aguarde a resposta do usuário.'),
 					],
 					flags: MessageFlags.Ephemeral,
 				});
@@ -67,7 +66,7 @@ module.exports = class CloseButton extends Button {
 									text: ticket.guild.footer,
 								})
 									.setColor(ticket.guild.errorColour)
-									.setDescription(getMessage('ticket.close.rejected', { user: interaction.user.toString() }))
+									.setDescription(`✋ ${interaction.user.toString()} rejeitou a solicitação de fechamento deste ticket.`)
 									.setFooter({ text: null }),
 							],
 						});

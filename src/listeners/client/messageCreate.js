@@ -225,6 +225,41 @@ module.exports = class extends Listener {
 							// ignore corrupt reminder data
 						}
 					}
+					// GL Capital: o contador de fechamento automático só começa depois
+					// que alguém do cargo de atendimento (/ticket_devs) responde no
+					// ticket. `closeTimer` preenchido significa que ele já começou
+					// alguma vez — inclusive quando foi parado por /end_timer_fechamento,
+					// que é o que impede o contador de rearmar sozinho aqui.
+					if (
+						!ticket.closeTimer &&
+						settings.devRole &&
+						settings.closeTimer &&
+						message.member?.roles.cache.has(settings.devRole)
+					) {
+						try {
+							const config = JSON.parse(settings.closeTimer);
+							if (config?.ms) {
+								data.closeTimer = JSON.stringify({
+									dueAt: Date.now() + config.ms,
+									ms: config.ms,
+								});
+							}
+						} catch {
+							// ignore corrupt close timer config
+						}
+					}
+					// o autor respondeu, então a contagem recomeça do zero
+					if (ticket.closeTimer && message.author.id === ticket.createdById) {
+						try {
+							const closeTimer = JSON.parse(ticket.closeTimer);
+							if (closeTimer?.dueAt && closeTimer?.ms) { // dueAt exigido: não ressuscita um contador parado
+								closeTimer.dueAt = Date.now() + closeTimer.ms;
+								data.closeTimer = JSON.stringify(closeTimer);
+							}
+						} catch {
+							// ignore corrupt close timer data
+						}
+					}
 					ticket = await client.prisma.ticket.update({
 						data,
 						where: { id: ticket.id },

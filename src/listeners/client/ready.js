@@ -9,6 +9,7 @@ const {
 } = require('../../lib/stats');
 const handleStaleTickets = require('../../lib/stale');
 const handleReminders = require('../../lib/reminders');
+const handleCloseTimers = require('../../lib/closeTimers');
 
 module.exports = class extends Listener {
 	constructor(client, options) {
@@ -126,6 +127,9 @@ module.exports = class extends Listener {
 
 			// send scheduled reminders to inactive ticket openers
 			setInterval(() => handleReminders(client), ms('1m'));
+
+			// close tickets whose opener stopped replying (see /tempo_de_fechamento)
+			setInterval(() => handleCloseTimers(client), ms('10s'));
 		}
 	}
 };

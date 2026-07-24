@@ -10,6 +10,7 @@ const Mustache = require('mustache');
 const { AttachmentBuilder } = require('discord.js');
 const ExtendedEmbedBuilder = require('../../lib/embed');
 const { pools } = require('../../lib/threads');
+const { sectorLabel } = require('../../lib/tickets/sectors');
 
 const { transcript: pool } = pools;
 
@@ -68,6 +69,27 @@ module.exports = class TranscriptSlashCommand extends SlashCommand {
 
 		ticket = await pool.queue(w => w(ticket));
 
+		// GL Capital: nome de exibição atual do membro, com fallback para os dados
+		// arquivados (quem abriu/fechou pode já ter saído do servidor, e quem abriu
+		// pode nunca ter escrito no ticket, ficando fora do arquivo)
+		const guild = client.guilds.cache.get(ticket.guildId);
+		const resolveName = async userId => {
+			if (!userId) return null;
+			try {
+				const member = guild?.members.cache.get(userId) ?? await guild?.members.fetch(userId);
+				if (member) return member.displayName;
+			} catch {
+				// não é mais membro do servidor
+			}
+			const archived = ticket.archivedUsers?.find(u => u.userId === userId);
+			return archived?.displayName || archived?.username || null;
+		};
+
+		const [creatorName, closerName] = await Promise.all([
+			resolveName(ticket.createdById),
+			resolveName(ticket.closedById),
+		]);
+
 		const channelName = ticket.category.channelName
 			.replace(/{+\s?(user)?name\s?}+/gi, ticket.createdBy?.username)
 			.replace(/{+\s?(nick|display)(name)?\s?}+/gi, ticket.createdBy?.displayName)
@@ -96,7 +118,14 @@ module.exports = class TranscriptSlashCommand extends SlashCommand {
 					timeZone: 'Etc/UTC',
 				}).format(this.createdAt);
 			},
-			guildName: client.guilds.cache.get(ticket.guildId)?.name,
+			glc: {
+				closedBy: closerName ?? '(fechamento automático)',
+				createdBy: creatorName ?? '(desconhecido)',
+				reason: ticket.topic || '(não informado)',
+				sector: ticket.sector ? sectorLabel(ticket.sector) : '(não informado)',
+				solution: ticket.closedReason || '(não informada)',
+			},
+			guildName: guild?.name,
 			pinned: ticket.pinnedMessageIds.join(', '),
 			ticket,
 		});

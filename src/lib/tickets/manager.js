@@ -707,6 +707,9 @@ module.exports = class TicketManager {
 			id: channel.id,
 			number,
 			openingMessageId: sent.id,
+			// GL Capital: o setor é guardado no ticket para sobreviver ao fechamento
+			// (o nome do canal, de onde ele era deduzido, deixa de existir)
+			sector: sector ?? null,
 			topic: topic ? await crypto.queue(w => w.encrypt(topic)) : null,
 		};
 		if (referencesTicketId) data.referencesTicket = { connect: { id: referencesTicketId } };
@@ -1106,6 +1109,22 @@ module.exports = class TicketManager {
 
 
 	/**
+	 * GL Capital: nome de exibição da pessoa atendida no ticket (quem o abriu).
+	 * Usado nas mensagens de fechamento para identificar o atendimento.
+	 * @param {import("discord.js").Guild} guild
+	 * @param {string} createdById
+	 * @returns {Promise<string>}
+	 */
+	async getCreatorName(guild, createdById) {
+		try {
+			const member = guild.members.cache.get(createdById) ?? await guild.members.fetch(createdById);
+			return member.displayName;
+		} catch {
+			return 'usuário desconhecido';
+		}
+	}
+
+	/**
 	 * @param {import("discord.js").ChatInputCommandInteraction|import("discord.js").ButtonInteraction} interaction
 	 * @param {string?} [reasonOverride] razão vinda de um modal (sobrepõe a opção 'reason')
 	 */
@@ -1116,15 +1135,13 @@ module.exports = class TicketManager {
 			const {
 				errorColour,
 				footer,
-				locale,
 			} = await this.client.prisma.guild.findUnique({
 				select: {
 					errorColour: true,
-					locale: true,
+					footer: true,
 				},
 				where: { id: interaction.guild.id },
 			});
-			const getMessage = this.client.i18n.getLocale(locale);
 			return await interaction.editReply({
 				embeds: [
 					new ExtendedEmbedBuilder({
@@ -1132,13 +1149,12 @@ module.exports = class TicketManager {
 						text: footer,
 					})
 						.setColor(errorColour)
-						.setTitle(getMessage('misc.not_ticket.title'))
-						.setDescription(getMessage('misc.not_ticket.description')),
+						.setTitle('❌ Este não é um canal de tickets')
+						.setDescription('Você só pode usar esse comando em tickets.'),
 				],
 			});
 		}
 
-		const getMessage = this.client.i18n.getLocale(ticket.guild.locale);
 		const staff = await isStaff(interaction.guild, interaction.user.id);
 		const reason = reasonOverride ?? (interaction.options?.getString('reason', false) || null); // ?. because it could be a button interaction
 
@@ -1147,8 +1163,8 @@ module.exports = class TicketManager {
 				embeds: [
 					new ExtendedEmbedBuilder()
 						.setColor(ticket.guild.errorColour)
-						.setTitle(getMessage('ticket.close.forbidden.title'))
-						.setDescription(getMessage('ticket.close.forbidden.description')),
+						.setTitle('❌ Sem permissão')
+						.setDescription('Você não tem permissão para fechar este ticket.'),
 				],
 			});
 		}
@@ -1189,25 +1205,43 @@ module.exports = class TicketManager {
 	async requestClose(interaction, reason) {
 		// interaction could be command, button. or modal
 		const ticket = await this.getTicket(interaction.channel.id);
-		const getMessage = this.client.i18n.getLocale(ticket.guild.locale);
 		const staff = interaction.user.id !== ticket.createdById && await isStaff(interaction.guild, interaction.user.id);
 		const closeButtonId = {
 			action: 'close',
 			expect: staff ? 'user' : 'staff',
 		};
-		const embed = new ExtendedEmbedBuilder(/* {
-			iconURL: interaction.guild.iconURL(),
-			text: ticket.guild.footer,
-		} */)
-			.setColor(ticket.guild.primaryColour)
-			.setTitle(getMessage(`ticket.close.${staff ? 'staff' : 'user'}_request.title`, { requestedBy: interaction.member.displayName }));
 
-		if (staff) {
-			embed.setDescription(
-				getMessage('ticket.close.staff_request.description', { requestedBy: interaction.user.toString() }) +
-				(ticket.guild.archive ? getMessage('ticket.close.staff_request.archived') : ''),
+		// GL Capital: a solicitação mostra quem está sendo atendido e a razão
+		// preenchida no formulário de fechamento, no lugar do texto padrão.
+		const creatorName = await this.getCreatorName(interaction.guild, ticket.createdById);
+		const description = [
+			`Atendimento de **${creatorName}**.`,
+			staff
+				? `${interaction.user.toString()} (equipe) solicitou o fechamento deste ticket.`
+				: `${interaction.user.toString()} solicitou o fechamento do próprio ticket.`,
+		];
+
+		if (reason) {
+			description.push(
+				'',
+				'**Razão do fechamento**',
+				`> ${reason.replace(/\n/g, '\n> ')}`,
 			);
 		}
+
+		description.push(
+			'',
+			'Clique em **Aceitar** para fechar agora, ou em **Rejeitar** se ainda precisar de ajuda.',
+		);
+
+		if (ticket.guild.archive) {
+			description.push('', 'As mensagens deste canal serão arquivadas para referência futura.');
+		}
+
+		const embed = new ExtendedEmbedBuilder()
+			.setColor(ticket.guild.primaryColour)
+			.setTitle('❓ Podemos fechar este ticket?')
+			.setDescription(description.join('\n'));
 
 		const sent = await interaction.editReply({
 			components: [
@@ -1219,16 +1253,16 @@ module.exports = class TicketManager {
 								...closeButtonId,
 							}))
 							.setStyle(ButtonStyle.Success)
-							.setEmoji(getMessage('buttons.accept_close_request.emoji'))
-							.setLabel(getMessage('buttons.accept_close_request.text')),
+							.setEmoji('✅')
+							.setLabel('Aceitar'),
 						new ButtonBuilder()
 							.setCustomId(JSON.stringify({
 								accepted: false,
 								...closeButtonId,
 							}))
 							.setStyle(ButtonStyle.Danger)
-							.setEmoji(getMessage('buttons.reject_close_request.emoji'))
-							.setLabel(getMessage('buttons.reject_close_request.text')),
+							.setEmoji('✖️')
+							.setLabel('Rejeitar'),
 					),
 			],
 			content: staff ? `<@${ticket.createdById}>` : '', // ticket.category.pingRoles.map(r => `<@&${r}>`).join(' ')
@@ -1252,7 +1286,6 @@ module.exports = class TicketManager {
 	 */
 	async acceptClose(interaction) {
 		const ticket = await this.getTicket(interaction.channel.id);
-		const getMessage = this.client.i18n.getLocale(ticket.guild.locale);
 		await interaction.editReply({
 			embeds: [
 				new ExtendedEmbedBuilder({
@@ -1260,8 +1293,8 @@ module.exports = class TicketManager {
 					text: ticket.guild.footer,
 				})
 					.setColor(ticket.guild.successColour)
-					.setTitle(getMessage('ticket.close.closed.title'))
-					.setDescription(getMessage('ticket.close.closed.description')),
+					.setTitle('✅ Ticket fechado')
+					.setDescription('Este canal será excluído em alguns segundos…'),
 			],
 		});
 		await new Promise(resolve => setTimeout(resolve, 3e3));
@@ -1277,7 +1310,6 @@ module.exports = class TicketManager {
 		reason = null,
 	}) {
 		let ticket = await this.getTicket(ticketId);
-		const getMessage = this.client.i18n.getLocale(ticket.guild.locale);
 
 		const { _count: { archivedMessages } } = await this.client.prisma.ticket.findUnique({
 			select: { _count: { select: { archivedMessages: true } } },
@@ -1305,6 +1337,13 @@ module.exports = class TicketManager {
 			data.pinnedMessageIds = [...pinned.keys()];
 		}
 
+		// GL Capital: tickets abertos antes do setor ser guardado no banco ainda o
+		// têm no nome do canal — aproveita para salvá-lo antes do canal ser apagado
+		if (!ticket.sector && channel?.name) {
+			const sector = sectorFromChannelName(channel.name);
+			if (sector) data.sector = sector;
+		}
+
 		try {
 			ticket = await this.client.prisma.ticket.update({
 				data,
@@ -1328,7 +1367,11 @@ module.exports = class TicketManager {
 
 		if (channel?.deletable) {
 			const member = closedBy ? channel.guild.members.cache.get(closedBy) : null;
-			await channel.delete('Ticket closed' + (member ? ` by ${member.displayName}` : '') + reason ? `: ${reason}` : '');
+			// os parênteses do ternário são necessários: sem eles a concatenação
+			// era sempre truthy e o motivo do registro de auditoria saía como ": null"
+			await channel.delete(
+				('Ticket fechado' + (member ? ` por ${member.displayName}` : '') + (reason ? `: ${reason}` : '')).slice(0, 400),
+			);
 		}
 
 		const components = [];
@@ -1343,55 +1386,61 @@ module.exports = class TicketManager {
 								ticket: ticket.id,
 							}))
 							.setStyle(ButtonStyle.Primary)
-							.setEmoji(getMessage('buttons.transcript.emoji'))
-							.setLabel(getMessage('buttons.transcript.text')),
+							.setEmoji('📄')
+							.setLabel('Transcrição'),
 
 					),
 			);
 		}
 
+		// GL Capital: o resumo do fechamento identifica quem foi atendido e
+		// mostra a razão preenchida no formulário de fechamento.
+		const creatorName = await this.getCreatorName(guild, ticket.createdById);
+
 		const fields = {
 			closed: {
 				inline: true,
-				name: getMessage('dm.closed.fields.closed.name'),
-				value: getMessage('dm.closed.fields.closed.value', {
-					duration: ms(ticket.closedAt - ticket.createdAt, { long: true }),
-					timestamp: `<t:${Math.floor(ticket.closedAt / 1000)}:f>`,
-				}),
+				name: 'Fechado às',
+				value: `<t:${Math.floor(ticket.closedAt / 1000)}:f> (após ${ms(ticket.closedAt - ticket.createdAt, { long: true })})`,
 			},
 			closedById: ticket.closedById && {
 				inline: true,
-				name: getMessage('dm.closed.fields.closed_by'),
+				name: 'Fechado por',
 				value: `<@${ticket.closedById}>`,
 			},
 			created: {
 				inline: true,
-				name: getMessage('dm.closed.fields.created'),
+				name: 'Criado em',
 				value: `<t:${Math.floor(ticket.createdAt / 1000)}:f>`,
+			},
+			creator: {
+				inline: true,
+				name: 'Atendido',
+				value: `**${creatorName}** (<@${ticket.createdById}>)`,
 			},
 			feedback: ticket.feedback && {
 				inline: true,
-				name: getMessage('dm.closed.fields.feedback'),
+				name: 'Feedback',
 				value: Array(ticket.feedback.rating).fill('⭐').join(' ') + ` (${ticket.feedback.rating}/5)`,
 			},
 			firstResponseAt: ticket.firstResponseAt && {
 				inline: true,
-				name: getMessage('dm.closed.fields.response'),
+				name: 'Tempo de resposta',
 				value: ms(ticket.firstResponseAt - ticket.createdAt, { long: true }),
 			},
 			reason: reason && {
-				inline: true,
-				name: getMessage('dm.closed.fields.reason'),
+				inline: false,
+				name: 'Razão do fechamento',
 				value: reason,
 			},
 			ticket: {
 				inline: true,
-				name: getMessage('dm.closed.fields.ticket'),
+				name: 'Ticket',
 				value: `${ticket.category.name} **#${ticket.number}**`,
 			},
 			topic: ticket.topic && {
 				inline: true,
-				name: getMessage('dm.closed.fields.topic'),
+				name: 'Tópico',
 				value: await crypto.queue(w => w.decrypt(ticket.topic)),
 			},
 		};
@@ -1401,9 +1450,9 @@ module.exports = class TicketManager {
 			text: ticket.guild.footer,
 		})
 			.setColor(ticket.guild.primaryColour)
-			.setTitle(getMessage('dm.closed.title'));
+			.setTitle('🎫 Ticket fechado');
 
-		dmEmbed.addFields(fields.ticket);
+		dmEmbed.addFields(fields.ticket, fields.creator);
 		if (ticket.topic) dmEmbed.addFields(fields.topic);
 		dmEmbed.addFields(fields.created, fields.closed);
 		if (ticket.firstResponseAt) dmEmbed.addFields(fields.firstResponseAt);
@@ -1442,7 +1491,7 @@ module.exports = class TicketManager {
 		// GL Capital: também envia o resumo de fechamento para o líder do setor do ticket
 		// (o setor é identificado pelo nome do canal, ainda disponível em memória).
 		try {
-			const sector = sectorFromChannelName(channel?.name);
+			const sector = ticket.sector ?? sectorFromChannelName(channel?.name);
 			const leaders = JSON.parse(ticket.guild.sectorLeaders || '{}');
 			const leaderId = sector ? leaders[sector] : null;
 			if (leaderId && leaderId !== ticket.createdById && guild) {
@@ -1459,7 +1508,7 @@ module.exports = class TicketManager {
 			this.client.log.error(error);
 		}
 
-		const fieldsArray = [];
+		const fieldsArray = [fields.creator];
 		if (ticket.topic) fieldsArray.push(fields.topic);
 		fieldsArray.push(fields.created, fields.closed);
 		if (ticket.firstResponseAt) fieldsArray.push(fields.firstResponseAt);
@@ -1468,12 +1517,12 @@ module.exports = class TicketManager {
 				{
 					...fields.feedback,
 					inline: true,
-					name: getMessage('modals.feedback.rating.label'),
+					name: 'Avaliação',
 				},
 				{
 					inline: true,
-					name: getMessage('modals.feedback.comment.label'),
-					value: (ticket.feedback.comment && await crypto.queue(w => w.decrypt(ticket.feedback.comment))) || getMessage('ticket.answers.no_value'),
+					name: 'Comentário',
+					value: (ticket.feedback.comment && await crypto.queue(w => w.decrypt(ticket.feedback.comment))) || '*Sem resposta*',
 				});
 		}
 		if (reason) fieldsArray.push(fields.reason);

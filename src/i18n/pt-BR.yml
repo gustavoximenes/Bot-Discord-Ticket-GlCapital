@@ -23,6 +23,9 @@ buttons:
   reject_close_request:
     emoji: ✖️
     text: Rejeitar
+  transcript:
+    emoji: 📄
+    text: Transcrição
   unclaim:
     emoji: ◀️
     text: Abdicar
